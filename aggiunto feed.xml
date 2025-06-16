@@ -1,11 +1,53 @@
-<?xml version='1.0' encoding='utf-8'?>
-<rss version="2.0"><channel><title>Feed automatico</title><link>https://TUOUSERNAME.github.io/feed.xml</link><description>Articoli generati automaticamente</description><language>it-it</language><item><title>2025-06-16.html</title><link>https://TUOUSERNAME.github.io/2025-06-16.html.html</link><pubDate>2025-06-16T13:58:17.469Z</pubDate><description>
-    &lt;h2&gt;Articolo del giorno - 6/16/2025&lt;/h2&gt;
-    &lt;p&gt;Pubblicato il 6/16/2025, 3:58:16 PM.&lt;/p&gt;
-  </description></item><item><title>2025-06-16.html</title><link>https://TUOUSERNAME.github.io/2025-06-16.html.html</link><pubDate>2025-06-16T13:52:15.348Z</pubDate><description>
-    &lt;h2&gt;Articolo del giorno - 6/16/2025&lt;/h2&gt;
-    &lt;p&gt;Questo è un post automatico pubblicato il 6/16/2025, 3:52:14 PM.&lt;/p&gt;
-  </description></item><item><title>2025-06-16.html</title><link>https://TUOUSERNAME.github.io/2025-06-16.html.html</link><pubDate>2025-06-16T13:51:51.618Z</pubDate><description>
-    &lt;h2&gt;Articolo del giorno - 6/16/2025&lt;/h2&gt;
-    &lt;p&gt;Questo è un post automatico pubblicato il 6/16/2025, 3:51:50 PM.&lt;/p&gt;
-  </description></item></channel></rss>
+from google.colab import auth
+auth.authenticate_user()
+
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaIoBaseDownload
+import io
+import xml.etree.ElementTree as ET
+import datetime
+
+# 🔁 QUI metti il tuo FOLDER_ID copiato da Drive
+FOLDER_ID = "1lz1FMGsclIrZR4ye1MwMlwiVpEeIoU94"
+OUTPUT_FILENAME = "feed.xml"
+
+# Autenticazione e accesso a Drive
+drive = build('drive', 'v3')
+
+# Recupera i file HTML nella cartella
+results = drive.files().list(
+    q=f"'{FOLDER_ID}' in parents and mimeType='text/html'",
+    fields="files(id, name, modifiedTime)").execute()
+
+items = sorted(results['files'], key=lambda x: x['modifiedTime'], reverse=True)
+
+# Costruisci il feed RSS
+rss = ET.Element("rss", version="2.0")
+channel = ET.SubElement(rss, "channel")
+ET.SubElement(channel, "title").text = "Feed automatico"
+ET.SubElement(channel, "link").text = "https://TUOUSERNAME.github.io/feed.xml"
+ET.SubElement(channel, "description").text = "Articoli generati automaticamente"
+ET.SubElement(channel, "language").text = "it-it"
+
+for item in items:
+    file_id = item['id']
+    request = drive.files().get_media(fileId=file_id)
+    fh = io.BytesIO()
+    downloader = MediaIoBaseDownload(fh, request)
+    done = False
+    while not done:
+        _, done = downloader.next_chunk()
+    fh.seek(0)
+    content = fh.read().decode("utf-8")
+
+    entry = ET.SubElement(channel, "item")
+    ET.SubElement(entry, "title").text = item['name']
+    ET.SubElement(entry, "link").text = "https://TUOUSERNAME.github.io/" + item['name'] + ".html"
+    ET.SubElement(entry, "pubDate").text = item['modifiedTime']
+    ET.SubElement(entry, "description").text = content
+
+tree = ET.ElementTree(rss)
+tree.write(OUTPUT_FILENAME, encoding="utf-8", xml_declaration=True)
+
+print("✅ Feed RSS generato:", OUTPUT_FILENAME)
+
